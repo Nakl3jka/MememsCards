@@ -6,6 +6,7 @@
   <title>MememsCards – Polskie Memy w Karty</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
+    /* ===== RESET & GLOBAL ===== */
     * {
       margin: 0;
       padding: 0;
@@ -1272,7 +1273,7 @@
         </div>
         <div class="setting-row" style="border-bottom:none; padding-top:20px;">
           <span class="setting-label"><i class="fas fa-info-circle"></i> Wersja</span>
-          <span style="color:#6a5a7a;">2.1.0</span>
+          <span style="color:#6a5a7a;">2.2.0</span>
         </div>
       </div>
     </div>
@@ -1280,7 +1281,7 @@
 
   <script>
     // =============================================================
-    //  MEMEMSCARDS – v2.1 z kartą 67 i dźwiękami z folderu
+    //  MEMEMSCARDS – v2.2 z nowymi złotymi kartami 67 i Skibidi
     // =============================================================
 
     // -------- CARD TEMPLATES --------
@@ -1346,7 +1347,7 @@
         rarity: 'epic',
         category: 'wydarzenie',
         power: 5,
-        banner: 'https://picsum.photos/seed/urwal/400/200'
+        banner: 'https://i.ytimg.com/vi/IBFz7G2YfgI/mqdefault.jpg' // zaktualizowany obrazek
       },
       'jestem-hardkorem': {
         id: 'jestem-hardkorem',
@@ -1411,15 +1412,25 @@
         power: 5,
         banner: 'https://v.wpimg.pl/ZTE2OTk3dTUkUDlnREh4IGcIbT0CEXZ2MBB1dkQCaGR1SnljXhw8PSlXPTEbXHQzN0c_NRxDdCQpHS4kAhwsZWpWJicbXzstalciNg5XdTZxBCtkWgFseSFXK2FGB2kycx93Ml9Vd2chBCplXQpjY3YCKXYW'
       },
-      // NOWA KARTA: 67 (Sześć Siedem)
+      // KARTA 67 – teraz ZŁOTA (legendary)
       'szesc-siedem': {
         id: 'szesc-siedem',
         name: 'Sześć Siedem (67)',
         desc: 'Ogłasza przeciwnika dźwiękiem 67 i daje dodatkową kolejkę!',
-        rarity: 'epic',
+        rarity: 'legendary', // zmiana na legendary
         category: 'dźwięk',
-        power: 4,
-        banner: 'https://picsum.photos/seed/szescsiedem/400/200'
+        power: 5,
+        banner: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSI20czG1SKxpSppOS9pCQEBTBwETM-Vid5DIHvMFdYK2g5zSf8wtLs8lYG&s=10'
+      },
+      // NOWA KARTA: Leży jeden Skibidi (złota)
+      'lezy-jeden-skibidi': {
+        id: 'lezy-jeden-skibidi',
+        name: 'Leży jeden Skibidi',
+        desc: 'Ogłasza przeciwnika dźwiękiem skibid i zadaje dodatkowe 2 obrażenia!',
+        rarity: 'legendary',
+        category: 'dźwięk',
+        power: 5,
+        banner: 'https://media.tenor.com/bEna7e8XyIsAAAAe/le%C5%BCy-jeden-skibidi.png'
       }
     };
 
@@ -1456,7 +1467,7 @@
       botPowerModifier: 0,
       playerDebuffTurns: 0,
       botDebuffTurns: 0,
-      playerExtraTurn: false, // dodatkowa kolejka dla gracza
+      playerExtraTurn: false,
       settings: { sound: true, music: true, animSpeed: 'normal' }
     };
     let uniqueIdCounter = 0;
@@ -1493,7 +1504,10 @@
     function createCardInstance(templateId, isGold = false) {
       const tpl = CARD_TEMPLATES[templateId];
       if (!tpl) throw new Error('Unknown template: ' + templateId);
-      if (templateId === 'dorota-wellman') isGold = true;
+      // Wymuszenie złota dla wybranych kart
+      if (templateId === 'dorota-wellman' || templateId === 'szesc-siedem' || templateId === 'lezy-jeden-skibidi') {
+        isGold = true;
+      }
       const maxCd = COOLDOWN_BY_RARITY[tpl.rarity] || 1;
       return {
         uniqueId: genUniqueId(),
@@ -1806,10 +1820,8 @@
       state.battleInProgress = true;
       document.getElementById('attackBtn').disabled = true;
 
-      // Sprawdzenie czy gracz ma dodatkową kolejkę – jeśli tak, bot nie atakuje w tej turze
       const isExtraTurn = state.playerExtraTurn;
 
-      // Bot wybiera kartę (ale nie atakuje jeśli extra turn)
       const botCard = botSelectCard();
       if (!botCard) {
         const fallback = createCardInstance('nosacz', false);
@@ -1817,10 +1829,8 @@
         botCard = fallback;
       }
 
-      // Wyświetl kartę bota
       document.getElementById('botCardSlot').innerHTML = buildCardHTML(botCard, false);
 
-      // Aktualizacja debuffów
       if (state.playerDebuffTurns > 0) state.playerDebuffTurns--;
       if (state.botDebuffTurns > 0) state.botDebuffTurns--;
       if (state.playerDebuffTurns === 0) state.playerPowerModifier = 0;
@@ -1833,23 +1843,19 @@
       let logMsg = '';
       let dorotaExecuted = false;
 
-      // === WALKA: gracz vs bot (chyba że extra turn – wtedy tylko gracz atakuje) ===
+      // === EXTRA TURN – tylko gracz atakuje ===
       if (isExtraTurn) {
-        // Dodatkowa kolejka: tylko gracz atakuje, bot nie odpowiada
         damage = Math.max(1, pPower);
         state.botHp = Math.max(0, state.botHp - damage);
         logMsg = `⭐ DODATKOWA KOLEJKA! Twój ${playerCard.displayName} (⚔️${pPower}) zadaje ${damage} obrażeń bez odpowiedzi!`;
         addLogEntry(logMsg, 'special');
-        // Czyści flagę extra turn po użyciu
         state.playerExtraTurn = false;
-        // Cooldown dla karty gracza
         applyCooldown(playerCard);
         updateAllCooldowns();
         updateBattleUI();
         renderBattleInventory();
         renderInventory();
 
-        // Sprawdzenie zwycięstwa
         if (state.botHp <= 0) {
           addLogEntry('🏆 <strong>WYGRANA!</strong> Zdobędziesz 50 zł!', 'win');
           state.gold += 50;
@@ -1873,9 +1879,7 @@
         return;
       }
 
-      // === NORMALNA WALKA (gracz + bot) ===
-
-      // Sprawdzenie kontry Marcin Prokop vs Dorota Wellman
+      // === NORMALNA WALKA ===
       if (playerCard.templateId === 'marcin-prokop' && botCard.templateId === 'dorota-wellman') {
         damage = playerCard.power + 3;
         state.botHp = Math.max(0, state.botHp - damage);
@@ -1887,7 +1891,6 @@
         logMsg = `🛡️ Bot używa Marcina Prokopa, kontrując Twoją Dorotę Wellman! Otrzymujesz ${damage} obrażeń, a twój atak jest anulowany!`;
         addLogEntry(logMsg, 'lose');
       } else {
-        // Normalna walka
         if (pPower > bPower) {
           damage = Math.max(1, (pPower - bPower) + 2);
           state.botHp = Math.max(0, state.botHp - damage);
@@ -1909,12 +1912,21 @@
         if (botCard.templateId === 'dorota-wellman' && state.hp > 0) dorotaExecuted = true;
       }
 
-      // === Efekty specjalne ===
-      // Karta 67 (Sześć Siedem) – ogłasza przeciwnika dźwiękiem 67 i daje dodatkową kolejkę
+      // === EFEKTY SPECJALNE ===
+      // Karta 67 – dodatkowa kolejka + dźwięk
       if (playerCard.templateId === 'szesc-siedem' && state.botHp > 0) {
         playSoundMP3('67.mp3');
         state.playerExtraTurn = true;
         addLogEntry('🔊 67! Ogłaszasz przeciwnika dźwiękiem 67! Dostajesz DODATKOWĄ KOLEJKĘ!', 'special');
+      }
+
+      // Karta Leży jeden Skibidi – dźwięk + dodatkowe 2 obrażenia
+      if (playerCard.templateId === 'lezy-jeden-skibidi' && state.botHp > 0) {
+        playSoundMP3('skibid.mp3');
+        // Dodatkowe 2 obrażenia
+        const extraDmg = 2;
+        state.botHp = Math.max(0, state.botHp - extraDmg);
+        addLogEntry(`🔊 Skibid! Zadajesz dodatkowe ${extraDmg} obrażeń!`, 'special');
       }
 
       // Dorota Wellman – spam dźwiękiem i debuff
@@ -1933,7 +1945,6 @@
         }
       }
 
-      // Cooldowny dla obu kart
       applyCooldown(playerCard);
       applyCooldown(botCard);
       updateAllCooldowns();
@@ -1942,7 +1953,6 @@
       renderBattleInventory();
       renderInventory();
 
-      // Sprawdzenie zwycięstwa
       if (state.botHp <= 0) {
         addLogEntry('🏆 <strong>WYGRANA!</strong> Zdobędziesz 50 zł!', 'win');
         state.gold += 50;
@@ -1966,7 +1976,6 @@
         return;
       }
 
-      // Jeśli gracz dostał dodatkową kolejkę, pokaż komunikat
       if (state.playerExtraTurn) {
         document.getElementById('battleHint').textContent =
           '⭐ DODATKOWA KOLEJKA! Wybierz kolejną kartę do ataku (bot nie odpowie)!';
@@ -1979,7 +1988,6 @@
         return;
       }
 
-      // Kontynuacja normalnej tury
       state.battleInProgress = false;
       state.battleSelected = null;
       document.getElementById('attackBtn').disabled = true;
@@ -2025,6 +2033,7 @@
           (c.rarity === 'common' ? 10 : c.rarity === 'epic' ? 30 : 80);
         const cdText = c.cooldown > 0 ? `⏳ ${c.cooldown}t` : '✅ gotowa';
         const extraTurnTag = c.templateId === 'szesc-siedem' ? ' ⭐+tura' : '';
+        const skibidiTag = c.templateId === 'lezy-jeden-skibidi' ? ' 🔊+2dmg' : '';
         return `
           <div class="inv-card ${goldClass}" data-id="${c.uniqueId}">
             <div class="inv-banner" style="background-image: url('${c.banner}');">
@@ -2032,7 +2041,7 @@
               <div class="inv-rarity ${rarityClass}">${rarityLabel}</div>
             </div>
             <div class="inv-body">
-              <div class="inv-name">${c.name}${extraTurnTag}</div>
+              <div class="inv-name">${c.name}${extraTurnTag}${skibidiTag}</div>
               <div class="inv-cat"><i class="fas fa-tag"></i> ${c.category}</div>
               <div class="inv-desc">${c.desc}</div>
               <div class="inv-footer">
@@ -2089,10 +2098,11 @@
         const goldClass = c.isGold ? 'golden' : '';
         const cdText = !ready ? `⏳ ${c.cooldown}t` : '';
         const extraTurnTag = c.templateId === 'szesc-siedem' ? ' ⭐+tura' : '';
+        const skibidiTag = c.templateId === 'lezy-jeden-skibidi' ? ' 🔊+2dmg' : '';
         return `
           <div class="bcard ${selected} ${disabled} ${goldClass}" data-id="${c.uniqueId}">
             <div style="font-size:22px; line-height:1;">🖼️</div>
-            <div class="bc-name">${c.name}${extraTurnTag}</div>
+            <div class="bc-name">${c.name}${extraTurnTag}${skibidiTag}</div>
             <div class="bc-power">⚔️ ${c.power}</div>
             ${c.isGold ? '<div class="bc-gold-star">✨</div>' : ''}
             ${cdText ? '<div class="bc-cooldown">'+cdText+'</div>' : ''}
@@ -2183,24 +2193,25 @@
       renderInventory();
       navigateTo('shop');
 
-      // Starter cards
-      for (let i = 0; i < 8; i++) {
+      // Starter cards – dodajemy nowe złote karty dla testów
+      state.inventory.push(createCardInstance('szesc-siedem', true));
+      state.inventory.push(createCardInstance('lezy-jeden-skibidi', true));
+
+      for (let i = 0; i < 6; i++) {
         const rarity = weightedRarity();
         const pool = RARITY_POOLS[rarity];
         const tplId = pickRandom(pool);
         const isGold = (rarity === 'common' && Math.random() < 0.15);
         state.inventory.push(createCardInstance(tplId, isGold));
       }
-      // Dodajemy kartę 67 dla testów (żeby od razu była dostępna)
-      state.inventory.push(createCardInstance('szesc-siedem', false));
 
       updateInventoryCount();
       renderInventory();
       renderBattleInventory();
       updateRestockTimers();
 
-      console.log('🐉 MememsCards v2.1 – nowa karta 67 z dźwiękiem i dodatkową kolejką!');
-      console.log('📁 Dźwięki z folderu "dzwieki": plakal.mp3, 67.mp3');
+      console.log('🐉 MememsCards v2.2 – nowe złote karty: 67 i Leży jeden Skibidi!');
+      console.log('📁 Dźwięki: plakal.mp3, 67.mp3, skibid.mp3');
     }
 
     document.addEventListener('DOMContentLoaded', init);
