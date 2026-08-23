@@ -1273,7 +1273,7 @@
         </div>
         <div class="setting-row" style="border-bottom:none; padding-top:20px;">
           <span class="setting-label"><i class="fas fa-info-circle"></i> Wersja</span>
-          <span style="color:#6a5a7a;">2.2.0</span>
+          <span style="color:#6a5a7a;">2.3.0</span>
         </div>
       </div>
     </div>
@@ -1281,7 +1281,8 @@
 
   <script>
     // =============================================================
-    //  MEMEMSCARDS – v2.2 z nowymi złotymi kartami 67 i Skibidi
+    //  MEMEMSCARDS – v2.3 z nowym systemem cooldownów (sekundy)
+    //  oraz kartą "Co ty kur#a miauczysz"
     // =============================================================
 
     // -------- CARD TEMPLATES --------
@@ -1347,7 +1348,7 @@
         rarity: 'epic',
         category: 'wydarzenie',
         power: 5,
-        banner: 'https://i.ytimg.com/vi/IBFz7G2YfgI/mqdefault.jpg' // zaktualizowany obrazek
+        banner: 'https://i.ytimg.com/vi/IBFz7G2YfgI/mqdefault.jpg'
       },
       'jestem-hardkorem': {
         id: 'jestem-hardkorem',
@@ -1389,7 +1390,7 @@
         id: 'zlomowisko',
         name: 'Złomowisko PL (Krzykacz)',
         desc: 'Legendarny zbieracz złomu Marek, symbol ciężkiej pracy, głośnego krzyku i życiowego optymizmu.',
-        rarity: 'legendary',
+        rarity: 'legendary', // zmienione na legendary
         category: 'osoba',
         power: 8,
         banner: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnPJtoptSJw_JU_hxH5-mCMsTbnEvtPpPfunZW_PsMcO0lroZdwu_A2CQ&s=10'
@@ -1412,25 +1413,33 @@
         power: 5,
         banner: 'https://v.wpimg.pl/ZTE2OTk3dTUkUDlnREh4IGcIbT0CEXZ2MBB1dkQCaGR1SnljXhw8PSlXPTEbXHQzN0c_NRxDdCQpHS4kAhwsZWpWJicbXzstalciNg5XdTZxBCtkWgFseSFXK2FGB2kycx93Ml9Vd2chBCplXQpjY3YCKXYW'
       },
-      // KARTA 67 – teraz ZŁOTA (legendary)
       'szesc-siedem': {
         id: 'szesc-siedem',
         name: 'Sześć Siedem (67)',
         desc: 'Ogłasza przeciwnika dźwiękiem 67 i daje dodatkową kolejkę!',
-        rarity: 'legendary', // zmiana na legendary
+        rarity: 'legendary', // Złota – ale cooldown 16s
         category: 'dźwięk',
         power: 5,
         banner: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSI20czG1SKxpSppOS9pCQEBTBwETM-Vid5DIHvMFdYK2g5zSf8wtLs8lYG&s=10'
       },
-      // NOWA KARTA: Leży jeden Skibidi (złota)
       'lezy-jeden-skibidi': {
         id: 'lezy-jeden-skibidi',
         name: 'Leży jeden Skibidi',
         desc: 'Ogłasza przeciwnika dźwiękiem skibid i zadaje dodatkowe 2 obrażenia!',
-        rarity: 'legendary',
+        rarity: 'legendary', // Złota
         category: 'dźwięk',
         power: 5,
         banner: 'https://media.tenor.com/bEna7e8XyIsAAAAe/le%C5%BCy-jeden-skibidi.png'
+      },
+      // NOWA KARTA: Co ty kur#a miauczysz (złota)
+      'co-ty-miauczysz': {
+        id: 'co-ty-miauczysz',
+        name: 'Co ty kur#a miauczysz',
+        desc: 'Zadaje obrażenia i odtwarza dźwięk miauczenia!',
+        rarity: 'common', // Złota – ale cooldown 16s (bo isGold)
+        category: 'dźwięk',
+        power: 4,
+        banner: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIqLdA858XENNXyATtEHRNHIjSa_H_RrxLu_q26lPEqn4RVLgn1hrZu9-s&s=10'
       }
     };
 
@@ -1446,7 +1455,13 @@
       { rarity: 'legendary', weight: 10 }
     ];
 
-    const COOLDOWN_BY_RARITY = { common: 1, epic: 2, legendary: 3 };
+    // Cooldowny w sekundach
+    const COOLDOWN_SECONDS = {
+      common: 5,
+      epic: 8,
+      legendary: 12,
+      gold: 16 // dla kart z isGold === true
+    };
 
     // -------- STATE --------
     let state = {
@@ -1501,20 +1516,31 @@
       return 'common';
     }
 
+    // -------- TWORZENIE KARTY Z COOLDOWNEM --------
     function createCardInstance(templateId, isGold = false) {
       const tpl = CARD_TEMPLATES[templateId];
       if (!tpl) throw new Error('Unknown template: ' + templateId);
+
       // Wymuszenie złota dla wybranych kart
-      if (templateId === 'dorota-wellman' || templateId === 'szesc-siedem' || templateId === 'lezy-jeden-skibidi') {
+      const forceGold = ['dorota-wellman', 'szesc-siedem', 'lezy-jeden-skibidi', 'co-ty-miauczysz'];
+      if (forceGold.includes(templateId)) {
         isGold = true;
       }
-      const maxCd = COOLDOWN_BY_RARITY[tpl.rarity] || 1;
+
+      // Ustaw cooldown (w sekundach)
+      let maxCooldown;
+      if (isGold) {
+        maxCooldown = COOLDOWN_SECONDS.gold; // 16s
+      } else {
+        maxCooldown = COOLDOWN_SECONDS[tpl.rarity] || 5;
+      }
+
       return {
         uniqueId: genUniqueId(),
         templateId: templateId,
         isGold: isGold,
-        cooldown: 0,
-        maxCooldown: maxCd,
+        cooldown: 0, // aktualny cooldown w sekundach
+        maxCooldown: maxCooldown,
         get power() { return tpl.power + (this.isGold ? 1 : 0); },
         get name() { return tpl.name; },
         get desc() { return tpl.desc; },
@@ -1525,6 +1551,42 @@
         get isReady() { return this.cooldown === 0; }
       };
     }
+
+    // -------- GLOBALNY LICZNIK COOLDOWNÓW (co sekundę) --------
+    setInterval(() => {
+      // Zmniejsz cooldown wszystkich kart gracza
+      state.inventory.forEach(c => {
+        if (c.cooldown > 0) c.cooldown = Math.max(0, c.cooldown - 1);
+      });
+      // Zmniejsz cooldown kart bota
+      if (state.botDeck) {
+        state.botDeck.forEach(c => {
+          if (c.cooldown > 0) c.cooldown = Math.max(0, c.cooldown - 1);
+        });
+      }
+      // Odśwież UI co sekundę (jeśli jesteśmy na odpowiedniej stronie)
+      const activePage = document.querySelector('.page.active');
+      if (activePage) {
+        const pageId = activePage.id;
+        if (pageId === 'page-inventory') {
+          const filter = document.querySelector('.inv-toolbar .active-filter')?.dataset.filter || 'all';
+          renderInventory(filter);
+        } else if (pageId === 'page-pvp') {
+          renderBattleInventory();
+          updateBattleUI();
+          // odśwież sloty jeśli są wybrane
+          if (state.battleSelected) {
+            const card = state.inventory.find(c => c.uniqueId === state.battleSelected);
+            if (card) {
+              document.getElementById('playerCardSlot').innerHTML = buildCardHTML(card, false);
+            }
+          }
+          if (state.botDeck && state.botDeck.length > 0) {
+            // nie aktualizujemy automatycznie, tylko gdy bot wybiera
+          }
+        }
+      }
+    }, 1000);
 
     // -------- RESTOCK --------
     function getRestockInterval() { return 300000; }
@@ -1603,7 +1665,6 @@
       updateInventoryCount();
       renderInventory();
       renderBattleInventory();
-      updateAllCooldowns();
 
       showDropOverlay(cards, bonusTriggered);
       return cards;
@@ -1638,7 +1699,7 @@
       const rarityClass = card.rarity;
       const goldClass = card.isGold ? 'golden' : '';
       const rarityLabel = card.isGold ? 'ZŁOTA' : card.rarity.toUpperCase();
-      const cdText = card.cooldown > 0 ? `⏳ ${card.cooldown}t` : '✅ gotowa';
+      const cdText = card.cooldown > 0 ? `⏳ ${card.cooldown}s` : '✅ gotowa';
       return `
         <div class="card-real ${goldClass}">
           <div class="card-banner" style="background-image: url('${card.banner}');">
@@ -1675,16 +1736,6 @@
       renderBattleInventory();
       return true;
     }
-
-    // -------- COOLDOWNS --------
-    function updateAllCooldowns() {
-      state.inventory.forEach(c => { if (c.cooldown > 0) c.cooldown = Math.max(0, c.cooldown - 1); });
-      if (state.botDeck) state.botDeck.forEach(c => { if (c.cooldown > 0) c.cooldown = Math.max(0, c.cooldown - 1); });
-    }
-
-    function applyCooldown(card) { card.cooldown = card.maxCooldown; }
-
-    function isCardReady(card) { return card.cooldown === 0; }
 
     // -------- PVP --------
     function resetBattle() {
@@ -1788,7 +1839,7 @@
       if (!state.opponentType) { alert('Najpierw znajdź przeciwnika!'); return; }
       const card = state.inventory.find(c => c.uniqueId === uniqueId);
       if (!card) return;
-      if (!isCardReady(card)) { alert(`⏳ Karta na cooldownie! (${card.cooldown} tur)`); return; }
+      if (!card.isReady) { alert(`⏳ Karta na cooldownie! (${card.cooldown}s)`); return; }
       state.battleSelected = uniqueId;
       renderBattleInventory();
       const extraTurnText = state.playerExtraTurn ? ' ⭐ DODATKOWA KOLEJKA!' : '';
@@ -1800,8 +1851,9 @@
 
     function botSelectCard() {
       if (!state.botDeck || state.botDeck.length === 0) return null;
-      const ready = state.botDeck.filter(c => isCardReady(c));
+      const ready = state.botDeck.filter(c => c.isReady);
       if (ready.length === 0) {
+        // reset cooldownów bota (dla ułatwienia)
         state.botDeck.forEach(c => c.cooldown = 0);
         return pickRandom(state.botDeck);
       }
@@ -1814,7 +1866,7 @@
       if (state.battleSelected === null) { alert('Wybierz kartę!'); return; }
       const playerCard = state.inventory.find(c => c.uniqueId === state.battleSelected);
       if (!playerCard) { alert('Karta nie znaleziona!'); return; }
-      if (!isCardReady(playerCard)) { alert('Ta karta jest na cooldownie!'); return; }
+      if (!playerCard.isReady) { alert('Ta karta jest na cooldownie!'); return; }
       if (state.hp <= 0 || state.botHp <= 0) { resetBattle(); return; }
 
       state.battleInProgress = true;
@@ -1843,15 +1895,18 @@
       let logMsg = '';
       let dorotaExecuted = false;
 
-      // === EXTRA TURN – tylko gracz atakuje ===
+      // === EXTRA TURN ===
       if (isExtraTurn) {
         damage = Math.max(1, pPower);
         state.botHp = Math.max(0, state.botHp - damage);
         logMsg = `⭐ DODATKOWA KOLEJKA! Twój ${playerCard.displayName} (⚔️${pPower}) zadaje ${damage} obrażeń bez odpowiedzi!`;
         addLogEntry(logMsg, 'special');
         state.playerExtraTurn = false;
-        applyCooldown(playerCard);
-        updateAllCooldowns();
+        // Nakładamy cooldown na kartę gracza
+        playerCard.cooldown = playerCard.maxCooldown;
+        // Bot też dostaje cooldown (symetrycznie)
+        if (botCard) botCard.cooldown = botCard.maxCooldown;
+
         updateBattleUI();
         renderBattleInventory();
         renderInventory();
@@ -1913,23 +1968,30 @@
       }
 
       // === EFEKTY SPECJALNE ===
-      // Karta 67 – dodatkowa kolejka + dźwięk
+      // Karta 67
       if (playerCard.templateId === 'szesc-siedem' && state.botHp > 0) {
         playSoundMP3('67.mp3');
         state.playerExtraTurn = true;
         addLogEntry('🔊 67! Ogłaszasz przeciwnika dźwiękiem 67! Dostajesz DODATKOWĄ KOLEJKĘ!', 'special');
       }
 
-      // Karta Leży jeden Skibidi – dźwięk + dodatkowe 2 obrażenia
+      // Karta Leży jeden Skibidi
       if (playerCard.templateId === 'lezy-jeden-skibidi' && state.botHp > 0) {
         playSoundMP3('skibid.mp3');
-        // Dodatkowe 2 obrażenia
         const extraDmg = 2;
         state.botHp = Math.max(0, state.botHp - extraDmg);
         addLogEntry(`🔊 Skibid! Zadajesz dodatkowe ${extraDmg} obrażeń!`, 'special');
       }
 
-      // Dorota Wellman – spam dźwiękiem i debuff
+      // NOWA KARTA: Co ty kur#a miauczysz
+      if (playerCard.templateId === 'co-ty-miauczysz' && state.botHp > 0) {
+        playSoundMP3('miau.mp3');
+        const extraDmg = 2; // dodatkowe obrażenia
+        state.botHp = Math.max(0, state.botHp - extraDmg);
+        addLogEntry(`🔊 Miau! Zadajesz dodatkowe ${extraDmg} obrażeń!`, 'special');
+      }
+
+      // Dorota Wellman
       if (dorotaExecuted) {
         if (playerCard.templateId === 'dorota-wellman') {
           playSoundMP3('plakal.mp3');
@@ -1945,14 +2007,15 @@
         }
       }
 
-      applyCooldown(playerCard);
-      applyCooldown(botCard);
-      updateAllCooldowns();
+      // Nakładamy cooldowny w sekundach
+      playerCard.cooldown = playerCard.maxCooldown;
+      if (botCard) botCard.cooldown = botCard.maxCooldown;
 
       updateBattleUI();
       renderBattleInventory();
       renderInventory();
 
+      // Sprawdzenie zwycięstwa
       if (state.botHp <= 0) {
         addLogEntry('🏆 <strong>WYGRANA!</strong> Zdobędziesz 50 zł!', 'win');
         state.gold += 50;
@@ -2031,9 +2094,10 @@
         const rarityLabel = c.isGold ? 'ZŁOTA' : c.rarity.toUpperCase();
         const sellPrice = c.isGold ? (c.rarity === 'common' ? 15 : c.rarity === 'epic' ? 45 : 120) :
           (c.rarity === 'common' ? 10 : c.rarity === 'epic' ? 30 : 80);
-        const cdText = c.cooldown > 0 ? `⏳ ${c.cooldown}t` : '✅ gotowa';
+        const cdText = c.cooldown > 0 ? `⏳ ${c.cooldown}s` : '✅ gotowa';
         const extraTurnTag = c.templateId === 'szesc-siedem' ? ' ⭐+tura' : '';
         const skibidiTag = c.templateId === 'lezy-jeden-skibidi' ? ' 🔊+2dmg' : '';
+        const miauTag = c.templateId === 'co-ty-miauczysz' ? ' 🔊+2dmg' : '';
         return `
           <div class="inv-card ${goldClass}" data-id="${c.uniqueId}">
             <div class="inv-banner" style="background-image: url('${c.banner}');">
@@ -2041,7 +2105,7 @@
               <div class="inv-rarity ${rarityClass}">${rarityLabel}</div>
             </div>
             <div class="inv-body">
-              <div class="inv-name">${c.name}${extraTurnTag}${skibidiTag}</div>
+              <div class="inv-name">${c.name}${extraTurnTag}${skibidiTag}${miauTag}</div>
               <div class="inv-cat"><i class="fas fa-tag"></i> ${c.category}</div>
               <div class="inv-desc">${c.desc}</div>
               <div class="inv-footer">
@@ -2073,7 +2137,7 @@
           const card = state.inventory.find(c => c.uniqueId === id);
           if (card) {
             alert(
-              `📜 ${card.displayName}\n${card.desc}\nKategoria: ${card.category}\nRzadkość: ${card.rarity.toUpperCase()}${card.isGold ? ' ✨ ZŁOTA' : ''}\nMoc: ${card.power}\nCooldown: ${card.cooldown > 0 ? card.cooldown + ' tur' : 'gotowa'}`
+              `📜 ${card.displayName}\n${card.desc}\nKategoria: ${card.category}\nRzadkość: ${card.rarity.toUpperCase()}${card.isGold ? ' ✨ ZŁOTA' : ''}\nMoc: ${card.power}\nCooldown: ${card.cooldown > 0 ? card.cooldown + 's' : 'gotowa'}`
               );
           }
         });
@@ -2093,16 +2157,17 @@
 
       container.innerHTML = state.inventory.map(c => {
         const selected = state.battleSelected === c.uniqueId ? 'selected' : '';
-        const ready = isCardReady(c);
+        const ready = c.isReady;
         const disabled = !ready ? 'disabled' : '';
         const goldClass = c.isGold ? 'golden' : '';
-        const cdText = !ready ? `⏳ ${c.cooldown}t` : '';
+        const cdText = !ready ? `⏳ ${c.cooldown}s` : '';
         const extraTurnTag = c.templateId === 'szesc-siedem' ? ' ⭐+tura' : '';
         const skibidiTag = c.templateId === 'lezy-jeden-skibidi' ? ' 🔊+2dmg' : '';
+        const miauTag = c.templateId === 'co-ty-miauczysz' ? ' 🔊+2dmg' : '';
         return `
           <div class="bcard ${selected} ${disabled} ${goldClass}" data-id="${c.uniqueId}">
             <div style="font-size:22px; line-height:1;">🖼️</div>
-            <div class="bc-name">${c.name}${extraTurnTag}${skibidiTag}</div>
+            <div class="bc-name">${c.name}${extraTurnTag}${skibidiTag}${miauTag}</div>
             <div class="bc-power">⚔️ ${c.power}</div>
             ${c.isGold ? '<div class="bc-gold-star">✨</div>' : ''}
             ${cdText ? '<div class="bc-cooldown">'+cdText+'</div>' : ''}
@@ -2196,8 +2261,9 @@
       // Starter cards – dodajemy nowe złote karty dla testów
       state.inventory.push(createCardInstance('szesc-siedem', true));
       state.inventory.push(createCardInstance('lezy-jeden-skibidi', true));
+      state.inventory.push(createCardInstance('co-ty-miauczysz', true));
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 5; i++) {
         const rarity = weightedRarity();
         const pool = RARITY_POOLS[rarity];
         const tplId = pickRandom(pool);
@@ -2210,8 +2276,8 @@
       renderBattleInventory();
       updateRestockTimers();
 
-      console.log('🐉 MememsCards v2.2 – nowe złote karty: 67 i Leży jeden Skibidi!');
-      console.log('📁 Dźwięki: plakal.mp3, 67.mp3, skibid.mp3');
+      console.log('🐉 MememsCards v2.3 – nowy system cooldownów (sekundy)');
+      console.log('📁 Dźwięki: plakal.mp3, 67.mp3, skibid.mp3, miau.mp3');
     }
 
     document.addEventListener('DOMContentLoaded', init);
